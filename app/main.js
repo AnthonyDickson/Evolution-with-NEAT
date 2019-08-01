@@ -22,6 +22,20 @@ export function main() {
     // add all of the bodies to the world
     World.add(engine.world, [boxA, boxB, ground]);
 
+    // add mouse control
+    const mouse = Matter.Mouse.create(render.canvas),
+        mouseConstraint = Matter.MouseConstraint.create(engine, {
+            mouse: mouse,
+            constraint: {
+                stiffness: 0.2,
+                render: {
+                    visible: false
+                }
+            }
+        });
+
+    World.add(engine.world, mouseConstraint);
+
     // run the engine
     Engine.run(engine);
 
