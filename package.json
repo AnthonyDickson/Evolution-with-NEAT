@@ -2,7 +2,7 @@
   "name": "evolution-with-neat",
   "version": "0.0.1",
   "description": "A game where creatures try to run as far right as possible and the creatures are generated using genetic algorithms.",
-  "main": "app/scripts/index.js",
+  "main": "app/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "watch": "webpack --watch",
@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.5.5",
+    "@babel/plugin-proposal-class-properties": "^7.5.5",
     "@babel/preset-env": "^7.5.5",
     "@babel/register": "^7.5.5",
     "babel-loader": "^8.0.6",
