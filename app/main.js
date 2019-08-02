@@ -1,8 +1,8 @@
 import {Bodies, Engine, Events, Mouse, MouseConstraint, Render, World} from "matter-js";
-import {MuscleConstraint} from "./muscle";
 
 
 import {CameraManager} from "./camera";
+import {Creature, CreatureGenome, NodeGenotype} from "./creature";
 
 export function main() {
     // create an engine
@@ -47,72 +47,57 @@ export function main() {
 
     World.add(engine.world, mouseConstraint);
 
+
+    const defaultCategory = 0x0001,
+        creatureCategory = 0x0002;
+
     const groundStyle = {fillStyle: '#573b0c'}; // earthy brown
 
     // create two boxes and a ground
     const ground = Bodies.rectangle(0, 570, worldWidth, 60,
-        {isStatic: true, render: groundStyle});
+        {
+            isStatic: true,
+            render: groundStyle,
+            collisionFilter: {
+                category: defaultCategory
+            }
+        });
 
     // add all of the bodies to the world
     World.add(engine.world, ground);
 
-    // Create... something
-    const circleA = Bodies.circle(0, 550, 20, {friction: 0.1, inertia: Infinity});
-    const circleB = Bodies.circle(80, 550, 20, {friction: 0.9, inertia: Infinity});
-    const circleC = Bodies.circle(80, 470, 20, {friction: 0.9, inertia: Infinity});
-
-    const constraintA = MuscleConstraint.create({
-        bodyA: circleA,
-        bodyB: circleB,
-        contractedLength: 60,
-        extendedLength: 80,
-        stiffness: 0.03,
-        damping: 0.1,
-    });
-    const constraintB = MuscleConstraint.create({
-        bodyA: circleB,
-        bodyB: circleC,
-        contractedLength: 60,
-        extendedLength: 80,
-        stiffness: 0.03,
-        damping: 0.1,
-    });
-    const constraintC = MuscleConstraint.create({
-        bodyA: circleC,
-        bodyB: circleA,
-        contractedLength: 60,
-        extendedLength: 80,
-        stiffness: 0.1,
-    });
-
-    World.add(engine.world, [circleA, circleB, circleC, constraintA, constraintB, constraintC]);
-
-    let counter = 0;
-    MuscleConstraint.contract(constraintC);
-
-    // Make the 'creature' move to the right... really slowly...
-    Events.on(engine, 'beforeUpdate', () => {
-        counter += 1;
-
-        if (counter === 40) {
-            MuscleConstraint.contract(constraintC);
-        }
-        if (counter >= 60) {
-            MuscleConstraint.contract(constraintA);
-
-            counter = 0;
-        }
-    });
-
     const cameraManager = new CameraManager(mouseConstraint);
 
-    // use the engine tick event to control our view
-    Events.on(engine, 'beforeTick', function () {
-        cameraManager.beforeTickUpdate(engine, render, mouseConstraint);
+    NodeGenotype.collisionFilter = {
+        category: creatureCategory, // put creatures in their own category
+        mask: defaultCategory // only allow creatures to collide with the environment and not each other.
+    };
+
+    let genomes = [];
+
+    for (let i = 0; i < 3; i++) {
+        genomes.push(CreatureGenome.createRandom(3));
+    }
+
+    let creatures = [];
+
+    for (const genome of genomes) {
+        const creature = new Creature(genome);
+        creatures.push(creature);
+        World.add(engine.world, creature.getPhenome());
+    }
+
+    // Make the 'creature' move to the right... really slowly...
+    Events.on(engine, 'beforeUpdate', function (event) {
+        cameraManager.onBeforeUpdate(engine, render, mouseConstraint);
+
+        for (const creature of creatures) {
+            creature.update(event.timestamp);
+        }
     });
 
-    Events.on(engine, 'afterTick', function () {
-        cameraManager.afterTickUpdate(engine, render, mouseConstraint);
+    Events.on(engine, 'afterUpdate', function () {
+        cameraManager.onAfterUpdate(engine, render, mouseConstraint);
     });
 
     // run the engine

@@ -56,7 +56,7 @@ export class CameraManager {
      * @param render The renderer that is being used.
      * @param mouseConstraint The mouse constraint that is being used.
      */
-    beforeTickUpdate(engine, render, mouseConstraint) {
+    onBeforeUpdate(engine, render, mouseConstraint) {
         let world = engine.world,
             mouse = mouseConstraint.mouse;
 
@@ -158,7 +158,7 @@ export class CameraManager {
      * @param render The renderer that is being used.
      * @param mouseConstraint The mouse constraint that is being used.
      */
-    afterTickUpdate(engine, render, mouseConstraint) {
+    onAfterUpdate(engine, render, mouseConstraint) {
         mouseConstraint.mouse.prevPos.x = mouseConstraint.mouse.absolute.x;
         mouseConstraint.mouse.prevPos.y = mouseConstraint.mouse.absolute.y;
     }
