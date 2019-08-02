@@ -1,4 +1,4 @@
-import Matter from "matter-js";
+import {Bounds, Events, Mouse, Vector} from "matter-js";
 
 /** This class manages the camera view in response to mouse input including zooming and panning. */
 export class CameraManager {
@@ -32,21 +32,21 @@ export class CameraManager {
         this.isDraggingBody = false;
 
         // Set up events to keep track of the mouse state.
-        Matter.Events.on(mouseConstraint, 'mousedown', function (event) {
+        Events.on(mouseConstraint, 'mousedown', function (event) {
             // TODO: Refactor mouse related stuff so that the mouse instance isn't mutated (want to avoid side effects).
             event.mouse.isDown = true;
             event.mouse.prevPos.x = event.mouse.absolute.x;
             event.mouse.prevPos.y = event.mouse.absolute.y;
         });
 
-        Matter.Events.on(mouseConstraint, 'mouseup', function (event) {
+        Events.on(mouseConstraint, 'mouseup', function (event) {
             // TODO: Refactor mouse related stuff so that the mouse instance isn't mutated (want to avoid side effects).
             event.mouse.isDown = false;
         });
 
 
-        Matter.Events.on(mouseConstraint, 'startdrag', () => this.isDraggingBody = true);
-        Matter.Events.on(mouseConstraint, 'enddrag', () => this.isDraggingBody = false);
+        Events.on(mouseConstraint, 'startdrag', () => this.isDraggingBody = true);
+        Events.on(mouseConstraint, 'enddrag', () => this.isDraggingBody = false);
     }
 
     /**
@@ -96,11 +96,11 @@ export class CameraManager {
                 y: render.options.height * scaleFactor * -0.5
             };
 
-            Matter.Bounds.translate(render.bounds, translation);
+            Bounds.translate(render.bounds, translation);
 
             // update mouse
-            Matter.Mouse.setScale(mouse, this.boundsScale);
-            Matter.Mouse.setOffset(mouse, render.bounds.min);
+            Mouse.setScale(mouse, this.boundsScale);
+            Mouse.setOffset(mouse, render.bounds.min);
         }
     }
 
@@ -116,19 +116,19 @@ export class CameraManager {
 
         if (mouse.isDown === true && !this.isDraggingBody) {
             // get vector from mouse relative to its previous position
-            const deltaPos = Matter.Vector.sub(mouse.prevPos, mouse.absolute),
-                direction = Matter.Vector.normalise(deltaPos),
-                speed = Matter.Vector.magnitude(deltaPos) * this.panSpeed;
+            const deltaPos = Vector.sub(mouse.prevPos, mouse.absolute),
+                direction = Vector.normalise(deltaPos),
+                speed = Vector.magnitude(deltaPos) * this.panSpeed;
 
-            translation = Matter.Vector.mult(direction, speed);
+            translation = Vector.mult(direction, speed);
 
             this.panVelocity = translation;
         } else {
-            this.panVelocity = Matter.Vector.mult(this.panVelocity, this.panVelocityDecayRate);
+            this.panVelocity = Vector.mult(this.panVelocity, this.panVelocityDecayRate);
             translation = this.panVelocity;
         }
 
-        if (Matter.Vector.magnitude(translation) > 0.01) {
+        if (Vector.magnitude(translation) > 0.01) {
             // prevent the view moving outside the world bounds
             if (render.bounds.min.x + translation.x < world.bounds.min.x)
                 translation.x = world.bounds.min.x - render.bounds.min.x;
@@ -143,10 +143,10 @@ export class CameraManager {
                 translation.y = world.bounds.max.y - render.bounds.max.y;
 
             // move the view
-            Matter.Bounds.translate(render.bounds, translation);
+            Bounds.translate(render.bounds, translation);
 
             // we must update the mouse too
-            Matter.Mouse.setOffset(mouse, render.bounds.min);
+            Mouse.setOffset(mouse, render.bounds.min);
         }
     }
 

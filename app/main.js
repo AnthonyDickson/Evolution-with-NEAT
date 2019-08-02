@@ -1,16 +1,10 @@
-import Matter from "matter-js";
+import {Bodies, Engine, Events, Mouse, MouseConstraint, Render, World} from "matter-js";
+import {MuscleConstraint} from "./muscle";
+
+
 import {CameraManager} from "./camera";
 
 export function main() {
-    // module aliases
-    const Engine = Matter.Engine,
-        Render = Matter.Render,
-        Constraint = Matter.Constraint,
-        Events = Matter.Events,
-        MouseConstraint = Matter.MouseConstraint,
-        Mouse = Matter.Mouse,
-        World = Matter.World,
-        Bodies = Matter.Bodies;
     // create an engine
     const engine = Engine.create();
 
@@ -53,44 +47,64 @@ export function main() {
 
     World.add(engine.world, mouseConstraint);
 
-    const cameraManager = new CameraManager(mouseConstraint);
-
-    const bodyStyle = {fillStyle: '#1a1'}; // green like the Hulk
     const groundStyle = {fillStyle: '#573b0c'}; // earthy brown
 
     // create two boxes and a ground
-    const boxA = Bodies.rectangle(0, 200, 80, 80, {render: bodyStyle});
-    const boxB = Bodies.rectangle(0, 50, 80, 80, {render: bodyStyle});
     const ground = Bodies.rectangle(0, 570, worldWidth, 60,
         {isStatic: true, render: groundStyle});
 
     // add all of the bodies to the world
-    World.add(engine.world, [boxA, boxB, ground]);
+    World.add(engine.world, ground);
 
-    const circleA = Bodies.circle(0, 0, 20, {friction: 0.9, inertia: Infinity});
-    const circleB = Bodies.circle(80, 0, 20, {friction: 0.9, inertia: Infinity});
-    const circleC = Bodies.circle(40, 80, 20, {friction: 0.9, inertia: Infinity});
+    // Create... something
+    const circleA = Bodies.circle(0, 550, 20, {friction: 0.1, inertia: Infinity});
+    const circleB = Bodies.circle(80, 550, 20, {friction: 0.9, inertia: Infinity});
+    const circleC = Bodies.circle(80, 470, 20, {friction: 0.9, inertia: Infinity});
 
-    const constraintA = Constraint.create({
+    const constraintA = MuscleConstraint.create({
         bodyA: circleA,
         bodyB: circleB,
-        stiffness: 0.04,
-        // damping: 0.05,
+        contractedLength: 60,
+        extendedLength: 80,
+        stiffness: 0.03,
+        damping: 0.1,
     });
-    const constraintB = Constraint.create({
+    const constraintB = MuscleConstraint.create({
         bodyA: circleB,
         bodyB: circleC,
-        stiffness: 0.04,
-        // damping: 0.05,
+        contractedLength: 60,
+        extendedLength: 80,
+        stiffness: 0.03,
+        damping: 0.1,
     });
-    const constraintC = Constraint.create({
+    const constraintC = MuscleConstraint.create({
         bodyA: circleC,
         bodyB: circleA,
-        stiffness: 0.04,
-        // damping: 0.05,
+        contractedLength: 60,
+        extendedLength: 80,
+        stiffness: 0.1,
     });
 
     World.add(engine.world, [circleA, circleB, circleC, constraintA, constraintB, constraintC]);
+
+    let counter = 0;
+    MuscleConstraint.contract(constraintC);
+
+    // Make the 'creature' move to the right... really slowly...
+    Events.on(engine, 'beforeUpdate', () => {
+        counter += 1;
+
+        if (counter === 40) {
+            MuscleConstraint.contract(constraintC);
+        }
+        if (counter >= 60) {
+            MuscleConstraint.contract(constraintA);
+
+            counter = 0;
+        }
+    });
+
+    const cameraManager = new CameraManager(mouseConstraint);
 
     // use the engine tick event to control our view
     Events.on(engine, 'beforeTick', function () {
