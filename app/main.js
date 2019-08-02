@@ -5,6 +5,7 @@ export function main() {
     // module aliases
     const Engine = Matter.Engine,
         Render = Matter.Render,
+        Constraint = Matter.Constraint,
         Events = Matter.Events,
         MouseConstraint = Matter.MouseConstraint,
         Mouse = Matter.Mouse,
@@ -65,6 +66,31 @@ export function main() {
 
     // add all of the bodies to the world
     World.add(engine.world, [boxA, boxB, ground]);
+
+    const circleA = Bodies.circle(0, 0, 20, {friction: 0.9, inertia: Infinity});
+    const circleB = Bodies.circle(80, 0, 20, {friction: 0.9, inertia: Infinity});
+    const circleC = Bodies.circle(40, 80, 20, {friction: 0.9, inertia: Infinity});
+
+    const constraintA = Constraint.create({
+        bodyA: circleA,
+        bodyB: circleB,
+        stiffness: 0.04,
+        // damping: 0.05,
+    });
+    const constraintB = Constraint.create({
+        bodyA: circleB,
+        bodyB: circleC,
+        stiffness: 0.04,
+        // damping: 0.05,
+    });
+    const constraintC = Constraint.create({
+        bodyA: circleC,
+        bodyB: circleA,
+        stiffness: 0.04,
+        // damping: 0.05,
+    });
+
+    World.add(engine.world, [circleA, circleB, circleC, constraintA, constraintB, constraintC]);
 
     // use the engine tick event to control our view
     Events.on(engine, 'beforeTick', function () {
