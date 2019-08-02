@@ -15,8 +15,8 @@ let MuscleConstraint = {};
 MuscleConstraint.create = function (options) {
     let muscle = Constraint.create(options);
 
-    muscle.contractedLength = options.contractedLength || 1;
-    muscle.extendedLength = options.extendedLength || 2;
+    muscle.contractedLength = options.contractedLength || muscle.length;
+    muscle.extendedLength = options.extendedLength || muscle.contractedLength + 1;
     muscle.length = muscle.contractedLength;
     muscle.isExtended = false;
 
