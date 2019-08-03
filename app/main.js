@@ -1,8 +1,16 @@
 import {Bodies, Engine, Events, Mouse, MouseConstraint, Render, World} from "matter-js";
 
-
+import RenderPIXI from "./RenderPIXI";
 import {CameraManager} from "./camera";
 import {Creature, CreatureGenome, NodeGenotype} from "./creature";
+
+// TODO: Add signposts indicating distance
+// TODO: Add text displaying camera position along x-axis
+// TODO: Show details for best, median and worst performing creatures.
+// TODO: Implement basic genetic algorithm
+// TODO: Implement NEAT
+// TODO: Add ability to design own creature.
+
 
 export function main() {
     // create an engine
@@ -15,7 +23,7 @@ export function main() {
     const worldWidth = Math.abs(engine.world.bounds.max.x) + Math.abs(engine.world.bounds.min.x);
 
     // create a renderer
-    const render = Render.create({
+    const render = RenderPIXI.create({
         element: document.body,
         engine: engine,
         options: {
@@ -42,7 +50,11 @@ export function main() {
                 render: {
                     visible: false
                 }
+            },
+            collisionFilter: {
+                mask: 0
             }
+
         });
 
     World.add(engine.world, mouseConstraint);
@@ -104,6 +116,6 @@ export function main() {
     Engine.run(engine);
 
     // run the renderer
-    Render.run(render);
+    RenderPIXI.run(render);
 }
 
