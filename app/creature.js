@@ -1,6 +1,6 @@
 import {Bodies, Constraint} from "matter-js";
 import {MuscleConstraint} from "./muscle";
-import {clippedRandGauss, randInt} from "./utils";
+import {clippedRandomGaussian, randomInt} from "./utils";
 
 /** A genotype for a 'node' in a creature'. These sort of act like a mixture between joints and limbs. */
 export class NodeGenotype {
@@ -24,6 +24,12 @@ export class NodeGenotype {
     };
 
     /**
+     * The probability that a gene is mutated during mutation.
+     * @type {number}
+     */
+    static pMutate = 0.01;
+
+    /**
      * The default collision filter for nodes.
      * @type {{category: number, mask: number}}
      */
@@ -34,12 +40,25 @@ export class NodeGenotype {
 
     /**
      * Create a node gene.
-     * @param size The radius of the node.
-     * @param friction The friction of the node.
+     * @param options {{size: number?, friction: number?}}
      */
-    constructor(size = 20, friction = 0.9) {
-        this.size = size;
-        this.friction = friction;
+    constructor(options = {}) {
+        const defaults = {
+            size: 20,
+            friction: 0.9
+        };
+
+        options = Object.assign({}, defaults, options);
+
+        /**
+         * The radius of the node.
+         */
+        this.size = options.size;
+
+        /**
+         * The friction of the node.
+         */
+        this.friction = options.friction;
     }
 
     /**
@@ -47,12 +66,18 @@ export class NodeGenotype {
      * @returns {NodeGenotype} The generated node genotype.
      */
     static createRandom() {
-        // Size must be a positive integer
-        const size = clippedRandGauss(NodeGenotype.randomConfig.size);
-        // Friction must be a non-negative real
-        const friction = clippedRandGauss(NodeGenotype.randomConfig.friction);
+        return new NodeGenotype({
+            size: clippedRandomGaussian(NodeGenotype.randomConfig.size),
+            friction: clippedRandomGaussian(NodeGenotype.randomConfig.friction)
+        });
+    }
 
-        return new NodeGenotype(size, friction);
+    /**
+     * Create a shallow copy of the genotype.
+     * @returns {{} & NodeGenotype} A copy of the genotype.
+     */
+    copy() {
+        return new NodeGenotype(this);
     }
 
     /**
@@ -68,6 +93,25 @@ export class NodeGenotype {
             inertia: Infinity, // This stops the body from rotating like a wheel.
             collisionFilter: NodeGenotype.collisionFilter
         });
+    }
+
+    /**
+     * Mutate the genotype randomly.
+     */
+    mutate() {
+        const p = Math.random();
+
+        if (p < NodeGenotype.pMutate) {
+            switch (randomInt(0, 2)) {
+                case 0:
+                    this.size = clippedRandomGaussian(Object.assign({}, NodeGenotype.randomConfig.size,
+                        {mu: this.size}));
+                    break;
+                case 1:
+                    this.friction = clippedRandomGaussian(Object.assign({}, NodeGenotype.randomConfig.friction,
+                        {mu: this.friction}));
+            }
+        }
     }
 }
 
@@ -117,30 +161,66 @@ export class MuscleGenotype {
     };
 
     /**
+     * The probability that a gene is mutated during mutation.
+     * @type {number}
+     */
+    static pMutate = 0.01;
+
+    /**
      * Create a new muscle genotype.
      *
-     * @param bodyA The ID (index) of the first body (node) connected to by the muscle.
-     * @param bodyB The ID (index) of the second body (node) connected to by the muscle.
-     * @param stiffness How fast the muscle moves between its contracted and extended states.
-     * @param damping How much the effect of stiffness should be dampened.
-     * @param contractedLength How long the muscle is in its contracted state.
-     * @param extendedLength How long the muscle is in its extended state.
-     * @param contractDelay How long the muscle waits after extending to contract again.
-     * @param extendDelay How long the muscle waits after contracting to extend again.
+     * @param options {{bodyA: number?, bodyB: number?, stiffness: number?, damping: number?, contractedLength: number?,
+     *     extendedLength: number?, contractDelay: number?, extendDelay: number?}}
      *
      * @see Constraint.create
      * @see MuscleConstraint.create
      */
-    constructor(bodyA = 0, bodyB = 1, stiffness = 0.1, damping = 0.1, contractedLength = 60, extendedLength = 80,
-                contractDelay = 1000, extendDelay = 1000) {
-        this.bodyA = bodyA;
-        this.bodyB = bodyB;
-        this.contractedLength = contractedLength;
-        this.extendedLength = extendedLength;
-        this.contractDelay = contractDelay;
-        this.extendDelay = extendDelay;
-        this.stiffness = stiffness;
-        this.damping = damping;
+    constructor(options = {}) {
+        const defaults = {
+            bodyA: 0,
+            bodyB: 1,
+            stiffness: 0.1,
+            damping: 0.1,
+            contractedLength: 60,
+            extendedLength: 80,
+            contractDelay: 1000,
+            extendDelay: 1000
+        };
+
+        options = Object.assign({}, defaults, options);
+        /**
+         * The ID (index) of the first body (node) connected to by the muscle.
+         */
+        this.bodyA = options.bodyA;
+        /**
+         * The ID (index) of the second body (node) connected to by the muscle.
+         */
+        this.bodyB = options.bodyB;
+        /**
+         * How fast the muscle moves between its contracted and extended states.
+         */
+        this.stiffness = options.stiffness;
+        /**
+         * How much the effect of stiffness should be dampened.
+         */
+        this.damping = options.damping;
+        /**
+         * How long the muscle is in its contracted state.
+         */
+        this.contractedLength = options.contractedLength;
+        /**
+         * How long the muscle is in its extended state.
+         */
+        this.extendedLength = options.extendedLength;
+        /**
+         * How long the muscle waits after extending to contract again.
+         */
+        this.contractDelay = options.contractDelay;
+
+        /**
+         * How long the muscle waits after contracting to extend again.
+         */
+        this.extendDelay = options.extendDelay;
     }
 
     /**
@@ -151,17 +231,31 @@ export class MuscleGenotype {
      * @returns {MuscleGenotype} The generated genotype.
      */
     static createRandom(nNodes = 2) {
-        let n1 = randInt(0, nNodes);
-        let n2 = randInt(0, nNodes);
+        let n1 = randomInt(0, nNodes);
+        let n2 = randomInt(0, nNodes);
 
         while (n1 === n2) {
-            n2 = randInt(0, nNodes);
+            n2 = randomInt(0, nNodes);
         }
 
-        return new MuscleGenotype(n1, n2,
-            clippedRandGauss(MuscleGenotype.randomConfig.stiffness), clippedRandGauss(MuscleGenotype.randomConfig.damping),
-            clippedRandGauss(MuscleGenotype.randomConfig.contractedLength), clippedRandGauss(MuscleGenotype.randomConfig.extendedLength),
-            clippedRandGauss(MuscleGenotype.randomConfig.contractDelay), clippedRandGauss(MuscleGenotype.randomConfig.extendDelay));
+        return new MuscleGenotype({
+            bodyA: n1,
+            bodyB: n2,
+            stiffness: clippedRandomGaussian(MuscleGenotype.randomConfig.stiffness),
+            damping: clippedRandomGaussian(MuscleGenotype.randomConfig.damping),
+            contractedLength: clippedRandomGaussian(MuscleGenotype.randomConfig.contractedLength),
+            extendedLength: clippedRandomGaussian(MuscleGenotype.randomConfig.extendedLength),
+            contractDelay: clippedRandomGaussian(MuscleGenotype.randomConfig.contractDelay),
+            extendDelay: clippedRandomGaussian(MuscleGenotype.randomConfig.extendDelay),
+        });
+    }
+
+    /**
+     * Create a shallow copy of the genotype.
+     * @returns {{} & MuscleGenotype}
+     */
+    copy() {
+        return new MuscleGenotype(this);
     }
 
     /**
@@ -186,6 +280,48 @@ export class MuscleGenotype {
 
         return constraint;
     }
+
+    /**
+     * Mutate the genotype randomly.
+     */
+    mutate() {
+        const p = Math.random();
+
+        if (p < MuscleGenotype.pMutate) {
+            switch (randomInt(0, 6)) {
+                case 0:
+                    this.contractedLength = clippedRandomGaussian(Object.assign({},
+                        MuscleGenotype.randomConfig.contractedLength,
+                        {mu: this.contractedLength}));
+                    break;
+                case 1:
+                    this.extendedLength = clippedRandomGaussian(Object.assign({},
+                        MuscleGenotype.randomConfig.extendedLength,
+                        {mu: this.extendedLength}));
+                    break;
+                case 2:
+                    this.stiffness = clippedRandomGaussian(Object.assign({},
+                        MuscleGenotype.randomConfig.stiffness,
+                        {mu: this.stiffness}));
+                    break;
+                case 3:
+                    this.damping = clippedRandomGaussian(Object.assign({},
+                        MuscleGenotype.randomConfig.damping,
+                        {mu: this.damping}));
+                    break;
+                case 4:
+                    this.contractDelay = clippedRandomGaussian(Object.assign({},
+                        MuscleGenotype.randomConfig.contractDelay,
+                        {mu: this.contractDelay}));
+                    break;
+                case 5:
+                    this.extendDelay = clippedRandomGaussian(Object.assign({},
+                        MuscleGenotype.randomConfig.extendDelay,
+                        {mu: this.extendDelay}));
+                    break;
+            }
+        }
+    }
 }
 
 /** A collection of genotypes that make up a creature. */
@@ -199,6 +335,20 @@ export class CreatureGenome {
     constructor(nodeGenotypes, muscleGenotypes) {
         this.nodeGenotypes = nodeGenotypes;
         this.muscleGenotypes = muscleGenotypes;
+        this.genotypes = this.nodeGenotypes.concat(this.muscleGenotypes);
+    }
+
+    /**
+     * Perform crossover between two genomes, mutate the resulting genome and return it.
+     * @param creatureGenome1 The first genome to breed.
+     * @param creatureGenome2 The second genome to breed.
+     * @returns {CreatureGenome} The genome resulting from 'breeding' the two given genomes.
+     */
+    static breed(creatureGenome1, creatureGenome2) {
+        let childCreatureGenome = creatureGenome1.crossover(creatureGenome2);
+        childCreatureGenome.mutate();
+
+        return childCreatureGenome;
     }
 
     /**
@@ -222,6 +372,57 @@ export class CreatureGenome {
 
         return new CreatureGenome(nodeGenotypes, muscleGenotypes)
     }
+
+    /**
+     * Create a copy of the genome.
+     * @returns {CreatureGenome} A copy of the genome
+     */
+    copy() {
+        let nodeGenotypes = [];
+        let muscleGenotypes = [];
+
+        for (let i = 0; i < this.nodeGenotypes.length; i++) {
+            nodeGenotypes.push(this.nodeGenotypes[i].copy());
+            muscleGenotypes.push(this.muscleGenotypes[i].copy());
+        }
+
+        return new CreatureGenome(nodeGenotypes, muscleGenotypes);
+    }
+
+    /**
+     * Perform crossover between two creature genomes.
+     * @param otherCreatureGenome The other genome to crossover with.
+     * @returns {CreatureGenome} The new creature genome that results from the crossover operation.
+     */
+    crossover(otherCreatureGenome) {
+        // Single-point crossover
+        const crossoverPoint = randomInt(0, this.nodeGenotypes.length);
+        let nodeGenotypes = [];
+        let muscleGenotypes = [];
+
+        for (let i = 0; i < this.nodeGenotypes.length; i++) {
+            if (i < crossoverPoint) {
+                nodeGenotypes.push(this.nodeGenotypes[i].copy());
+                muscleGenotypes.push(this.muscleGenotypes[i].copy());
+            } else {
+                nodeGenotypes.push(otherCreatureGenome.nodeGenotypes[i].copy());
+                muscleGenotypes.push(otherCreatureGenome.muscleGenotypes[i].copy());
+            }
+        }
+
+        return new CreatureGenome(nodeGenotypes, muscleGenotypes);
+    }
+
+    /**
+     * Mutate the genome randomly.
+     *
+     * Note: This is done in place.
+     */
+    mutate() {
+        for (const genotype of this.genotypes) {
+            genotype.mutate();
+        }
+    }
 }
 
 /** The physical representation of a creature with nodes and muscles.
@@ -241,17 +442,17 @@ export class Creature {
         this.muscleLastUpdates = [];
 
         let i = 0;
-        for (const nodeAllele of genome.nodeGenotypes) {
+        for (const nodeGenotype of genome.nodeGenotypes) {
             // Place nodes in a circle
             const angle = i * Math.PI / genome.nodeGenotypes.length;
             const pos = {x: Math.cos(angle) * 40, y: Math.sin(angle) * 40};
             i++;
 
-            this.bodies.push(nodeAllele.getPhenotype(pos.x + x, pos.y + y));
+            this.bodies.push(nodeGenotype.getPhenotype(pos.x + x, pos.y + y));
         }
 
-        for (const muscleAllele of genome.muscleGenotypes) {
-            this.muscles.push(muscleAllele.getPhenotype(this.bodies[muscleAllele.bodyA], this.bodies[muscleAllele.bodyB]));
+        for (const muscleGenotype of genome.muscleGenotypes) {
+            this.muscles.push(muscleGenotype.getPhenotype(this.bodies[muscleGenotype.bodyA], this.bodies[muscleGenotype.bodyB]));
             this.muscleLastUpdates.push(0);
         }
     }
@@ -262,6 +463,25 @@ export class Creature {
      */
     getPhenome() {
         return this.bodies.concat(this.muscles);
+    }
+
+    /**
+     * Get the displacement of the creature.
+     *
+     * This is the position of the body (node) that is furthest away from negative infinity (this may be negative).
+     *
+     * @returns {number} The displacement of the body along the x-axis.
+     */
+    getDisplacement() {
+        let x = -Infinity;
+
+        for (const body of this.bodies) {
+            if (body.position.x > x) {
+                x = body.position.x;
+            }
+        }
+
+        return x;
     }
 
     /**

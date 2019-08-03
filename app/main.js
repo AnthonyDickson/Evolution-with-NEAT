@@ -2,12 +2,13 @@ import {Bodies, Engine, Events, Mouse, MouseConstraint, Render, World} from "mat
 
 import RenderPIXI from "./RenderPIXI";
 import {CameraManager} from "./camera";
-import {Creature, CreatureGenome, NodeGenotype} from "./creature";
+import {NodeGenotype} from "./creature";
+import {GeneticAlgorithm} from "./ga";
 
 // TODO: Add signposts indicating distance
 // TODO: Add text displaying camera position along x-axis
 // TODO: Show details for best, median and worst performing creatures.
-// TODO: Implement basic genetic algorithm
+// TODO: Add controls to make camera follow the leader
 // TODO: Implement NEAT
 // TODO: Add ability to design own creature.
 
@@ -16,9 +17,9 @@ export function main() {
     // create an engine
     const engine = Engine.create();
 
-    engine.world.bounds.min.x = -1000;
+    engine.world.bounds.min.x = -10000;
     engine.world.bounds.min.y = 0;
-    engine.world.bounds.max.x = 1000;
+    engine.world.bounds.max.x = 10000;
     engine.world.bounds.max.y = 600;
     const worldWidth = Math.abs(engine.world.bounds.max.x) + Math.abs(engine.world.bounds.min.x);
 
@@ -85,27 +86,12 @@ export function main() {
         mask: defaultCategory // only allow creatures to collide with the environment and not each other.
     };
 
-    let genomes = [];
-
-    for (let i = 0; i < 3; i++) {
-        genomes.push(CreatureGenome.createRandom(3));
-    }
-
-    let creatures = [];
-
-    for (const genome of genomes) {
-        const creature = new Creature(genome);
-        creatures.push(creature);
-        World.add(engine.world, creature.getPhenome());
-    }
+    const GA = new GeneticAlgorithm(engine.world, {evaluationTime: 30000});
 
     // Make the 'creature' move to the right... really slowly...
     Events.on(engine, 'beforeUpdate', function (event) {
         cameraManager.onBeforeUpdate(engine, render, mouseConstraint);
-
-        for (const creature of creatures) {
-            creature.update(event.timestamp);
-        }
+        GA.update(event.timestamp);
     });
 
     Events.on(engine, 'afterUpdate', function () {

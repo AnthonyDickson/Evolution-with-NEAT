@@ -6,7 +6,7 @@
  * @param sigma The standard deviation of the gaussian distribution to sample from.
  * @returns {number} A number sampled from the specified gaussian distribution.
  */
-export function randGauss(mu = 0, sigma = 1) {
+export function randomGaussian(mu = 0, sigma = 1) {
     let u = 0, v = 0;
     while (u === 0) u = Math.random(); //Converting [0,1) to (0,1)
     while (v === 0) v = Math.random();
@@ -22,7 +22,7 @@ export function randGauss(mu = 0, sigma = 1) {
  * @param max The largest integer allowed plus one.
  * @returns {number} An integer in the range [`min`, `max`)
  */
-export function randInt(min = 0, max = 1) {
+export function randomInt(min = 0, max = 1) {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
@@ -40,12 +40,12 @@ export function clip(x, min = -Infinity, max = Infinity) {
 }
 
 /**
- * A clipped version of `randGauss()`.
+ * A clipped version of `randomGaussian()`.
  * @param options A dictionary containing the parameters `mu`, `sigma`, `min` and `max`.
- * @see randGauss
+ * @see randomGaussian
  * @see clip
  * @returns {number} A number sampled from the specified gaussian distribution clipped to the range [`min`, `max`].
  */
-export function clippedRandGauss(options) {
-    return clip(randGauss(options.mu, options.sigma), options.min, options.max);
+export function clippedRandomGaussian(options) {
+    return clip(randomGaussian(options.mu, options.sigma), options.min, options.max);
 }
