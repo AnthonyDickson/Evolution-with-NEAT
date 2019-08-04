@@ -17,12 +17,12 @@ I will use the default renderer that comes with matter.js.
     ```shell script
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
     ```
-2.  Install Node and Node Package Manager:
+2.  Install Node and NPM (Node Package Manager):
     ```shell script
     nvm install 10.16.1
     ```
     
-3.  Verify your Node installation:
+3.  Verify your NPM installation:
     ```shell script
     npm -v
     ```
