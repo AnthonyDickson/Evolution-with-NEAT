@@ -59,6 +59,16 @@ export class NodeGenotype {
          * The friction of the node.
          */
         this.friction = options.friction;
+
+        /**
+         * Whether or not the node genotype is enabled.
+         * A node genotype should only enabled if it is connected to the body of the creature.
+         * Enabled genotypes should not manifest physically (i.e. they should not have phenotypes).
+         *
+         * @type {boolean}
+         * @private
+         */
+        this.isEnabled = true;
     }
 
     /**
@@ -189,14 +199,19 @@ export class MuscleGenotype {
         };
 
         options = Object.assign({}, defaults, options);
+
         /**
          * The ID (index) of the first body (node) connected to by the muscle.
+         * In the constructor this is set to be the lowest of `bodyA` and `bodyB` so that these values are sorted.
+         * @type {number}
          */
-        this.bodyA = options.bodyA;
+        this.bodyA = Math.min(options.bodyA, options.bodyB);
         /**
          * The ID (index) of the second body (node) connected to by the muscle.
+         * In the constructor this is set to be the highest of `bodyA` and `bodyB` so that these values are sorted.
+         * @type {number}
          */
-        this.bodyB = options.bodyB;
+        this.bodyB = Math.max(options.bodyB, options.bodyA);
         /**
          * How fast the muscle moves between its contracted and extended states.
          */
@@ -222,6 +237,14 @@ export class MuscleGenotype {
          * How long the muscle waits after contracting to extend again.
          */
         this.extendDelay = options.extendDelay;
+        /**
+         * Whether or not the muscle genotype is enabled.
+         * A muscle genotype should be enabled as long as it connects two distinct nodes.
+         * Enabled genotypes should not manifest physically (i.e. they should not have phenotypes).
+         *
+         * @returns {boolean} True if the muscle genotype is enabled, false otherwise.
+         */
+        this.isEnabled = this.bodyA !== this.bodyB;
     }
 
     /**
@@ -231,17 +254,13 @@ export class MuscleGenotype {
      *               This allows the generation of indices that reference the nodes.
      * @returns {MuscleGenotype} The generated genotype.
      */
-    static createRandom(nNodes = 2) {
-        let n1 = randomInt(0, nNodes);
-        let n2 = randomInt(0, nNodes);
-
-        while (n1 === n2) {
-            n2 = randomInt(0, nNodes);
-        }
+    static createRandom(nNodes) {
+        let bodyA = randomInt(0, nNodes);
+        let bodyB = randomInt(0, nNodes);
 
         return new MuscleGenotype({
-            bodyA: n1,
-            bodyB: n2,
+            bodyA: bodyA,
+            bodyB: bodyB,
             stiffness: clippedRandomGaussian(MuscleGenotype.randomConfig.stiffness),
             damping: clippedRandomGaussian(MuscleGenotype.randomConfig.damping),
             contractedLength: clippedRandomGaussian(MuscleGenotype.randomConfig.contractedLength),
@@ -285,43 +304,60 @@ export class MuscleGenotype {
 
     /**
      * Mutate the genotype randomly.
+     * @param nNodes How many nodes that are in the creature that this muscle genotype will be added to.
+     *               This allows the generation of indices that reference the nodes.
      */
-    mutate() {
+    mutate(nNodes) {
         const p = Math.random();
 
         if (p < MuscleGenotype.pMutate) {
-            switch (randomInt(0, 6)) {
+            switch (randomInt(0, 8)) {
                 case 0:
+                    this.bodyA = randomInt(0, nNodes);
+                    break;
+                case 1:
+                    this.bodyB = randomInt(0, nNodes);
+                    break;
+                case 2:
                     this.contractedLength = clippedRandomGaussian(Object.assign({},
                         MuscleGenotype.randomConfig.contractedLength,
                         {mu: this.contractedLength}));
                     break;
-                case 1:
+                case 3:
                     this.extendedLength = clippedRandomGaussian(Object.assign({},
                         MuscleGenotype.randomConfig.extendedLength,
                         {mu: this.extendedLength}));
                     break;
-                case 2:
+                case 4:
                     this.stiffness = clippedRandomGaussian(Object.assign({},
                         MuscleGenotype.randomConfig.stiffness,
                         {mu: this.stiffness}));
                     break;
-                case 3:
+                case 5:
                     this.damping = clippedRandomGaussian(Object.assign({},
                         MuscleGenotype.randomConfig.damping,
                         {mu: this.damping}));
                     break;
-                case 4:
+                case 6:
                     this.contractDelay = clippedRandomGaussian(Object.assign({},
                         MuscleGenotype.randomConfig.contractDelay,
                         {mu: this.contractDelay}));
                     break;
-                case 5:
+                case 7:
                     this.extendDelay = clippedRandomGaussian(Object.assign({},
                         MuscleGenotype.randomConfig.extendDelay,
                         {mu: this.extendDelay}));
                     break;
             }
+
+
+            // Enforce the sorted property of the body IDs.
+            if (this.bodyA > this.bodyB) {
+                [this.bodyA, this.bodyB] = [this.bodyB, this.bodyA]
+            }
+
+            // Update the `isEnabled` property.
+            this.isEnabled = this.bodyA !== this.bodyB;
         }
     }
 }
@@ -337,6 +373,83 @@ export class CreatureGenome {
     constructor(nodeGenotypes, muscleGenotypes) {
         this.nodeGenotypes = nodeGenotypes;
         this.muscleGenotypes = muscleGenotypes;
+        this._checkActive();
+    }
+
+    /**
+     * Recursive depth-first search helper.
+     * @param current The current node.
+     * @param nodeIndex The adjacency list of the nodes/muscles.
+     * @param visitedNodes The nodes that have been visited already.
+     * @param group The nodes in the current group (this is a spanning tree).
+     * @private
+     */
+    static _dfs(current, nodeIndex, visitedNodes, group) {
+        if (!visitedNodes.has(current)) {
+            visitedNodes.add(current);
+            group.add(current);
+
+            for (const adjacent of nodeIndex[current]) {
+                CreatureGenome._dfs(adjacent, nodeIndex, visitedNodes, group);
+            }
+        }
+    }
+
+    /**
+     * Check for active and inactive node genes and set their state accordingly.
+     * @private
+     */
+    _checkActive() {
+        // TODO: Optimise this?
+        let nodeIndex = {};
+
+        for (let i = 0; i < this.nodeGenotypes.length; i++) {
+            nodeIndex[i] = [];
+        }
+
+        // Create a two-way adjacency list.
+        for (const muscleGenotype of this.muscleGenotypes) {
+            if (muscleGenotype.isEnabled) {
+                nodeIndex[muscleGenotype.bodyA].push(muscleGenotype.bodyB);
+                nodeIndex[muscleGenotype.bodyB].push(muscleGenotype.bodyA);
+            }
+        }
+
+        // Perform depth-first search to find which nodes are connected to each other.
+        let visitedNodes = new Set();
+        let groups = [];
+
+        for (let i = 0; i < this.nodeGenotypes.length; i++) {
+            if (!visitedNodes.has(i)) {
+                // A group is set of connected nodes.
+                let group = new Set();
+                CreatureGenome._dfs(i, nodeIndex, visitedNodes, group);
+                groups.push(group);
+            }
+        }
+
+        // Identify the `primary group` of nodes and muscles, i.e. the largest group.
+        groups.sort((a, b) => b.length - a.length); // sort groups by descending order of size/length
+        const [primaryGroup, ...secondaryGroups] = groups;
+
+        // Set active states appropriately for primary and secondary groups.
+
+        for (const i of primaryGroup) {
+            this.nodeGenotypes[i].isEnabled = true;
+        }
+
+        for (const group of secondaryGroups) {
+            for (const i of group) {
+                this.nodeGenotypes[i].isEnabled = false;
+            }
+        }
+
+        // Disable muscle genotypes that do not connect nodes in the main body.
+        for (let muscleGenotype of this.muscleGenotypes) {
+            if (!primaryGroup.has(muscleGenotype.bodyA) || !primaryGroup.has(muscleGenotype.bodyB)) {
+                muscleGenotype.isEnabled = false;
+            }
+        }
     }
 
     /**
@@ -429,8 +542,12 @@ export class CreatureGenome {
      * Note: This is done in place.
      */
     mutate() {
-        for (const genotype of this.genotypes) {
-            genotype.mutate();
+        for (const nodeGenotype of this.nodeGenotypes) {
+            nodeGenotype.mutate();
+        }
+
+        for (const muscleGenotype of this.muscleGenotypes) {
+            muscleGenotype.mutate(this.nodeGenotypes.length);
         }
     }
 }
@@ -447,23 +564,29 @@ export class Creature {
      * @param y Where to initially place the creature along the y-axis.
      */
     constructor(genome, x = 0, y = 0) {
-        this.bodies = [];
+        this.nodes = [];
         this.muscles = [];
         this.muscleLastUpdates = [];
 
         let i = 0;
-        for (const nodeGenotype of genome.nodeGenotypes) {
+        for (const nodeGenotype of genome.nodeGenotypes.filter(genotype => genotype.isEnabled)) {
             // Place nodes in a circle
             const angle = i * Math.PI / genome.nodeGenotypes.length;
             const pos = {x: Math.cos(angle) * 40, y: Math.sin(angle) * 40};
             i++;
 
-            this.bodies.push(NodeGenotype.getPhenotype(nodeGenotype, pos.x + x, pos.y + y));
+            this.nodes.push(NodeGenotype.getPhenotype(nodeGenotype, pos.x + x, pos.y + y));
         }
 
-        for (const muscleGenotype of genome.muscleGenotypes) {
+        for (const muscleGenotype of genome.muscleGenotypes.filter(genotype => genotype.isEnabled)) {
+            if (muscleGenotype.bodyA >= this.nodes.length || muscleGenotype.bodyB >= this.nodes.length) {
+                console.error(`Muscle references nodes ${muscleGenotype.bodyA} and ${muscleGenotype.bodyB}`,
+                    `but there are only ${this.nodes.length} nodes in the creature (that are enabled).`,
+                    'The muscle and nodes in questions: ', muscleGenotype, this.nodes);
+            }
+
             this.muscles.push(MuscleGenotype.getPhenotype(muscleGenotype,
-                this.bodies[muscleGenotype.bodyA], this.bodies[muscleGenotype.bodyB]));
+                this.nodes[muscleGenotype.bodyA], this.nodes[muscleGenotype.bodyB]));
             this.muscleLastUpdates.push(0);
         }
         // TODO: Add names for creatures.
@@ -474,7 +597,7 @@ export class Creature {
      * @returns {*[]} The phenome of the creature.
      */
     get phenome() {
-        return this.bodies.concat(this.muscles);
+        return this.nodes.concat(this.muscles);
     }
 
     /**
@@ -498,7 +621,7 @@ export class Creature {
     getDisplacement() {
         let x = -Infinity;
 
-        for (const body of this.bodies) {
+        for (const body of this.nodes) {
             if (body.position.x > x) {
                 x = body.position.x;
             }

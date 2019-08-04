@@ -115,6 +115,7 @@ export function main() {
     const GA = new GeneticAlgorithm(engine.world, {
         evaluationTime: evaluationTime,
         tournamentSize: 3,
+        maxGenotypesPerCreature: 4,
         startingPosition: {y: viewportHeight - 200},
         onGenerationStart: onGenerationStart,
         onGenerationEnd: onGenerationEnd

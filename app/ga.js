@@ -12,7 +12,7 @@ export class GeneticAlgorithm {
      * @param world The Matter.World that is being used.
      * @param options {{populationSize: number?, evaluationTime: number?, elitismRatio: number?,
      *     tournamentSize: number?, onGenerationStart: function?, startingPosition: {x: number?, y: number?}?,
-     *     onGenerationEnd: function?}}
+     *     maxGenotypesPerCreature: number?, onGenerationEnd: function?}}
      *     A dictionary of options.
      */
     constructor(world, options) {
@@ -22,6 +22,7 @@ export class GeneticAlgorithm {
             elitismRatio: 10,
             tournamentSize: 10,
             startingPosition: {x: 0, y: 0},
+            maxGenotypesPerCreature: 3,
             onGenerationStart: null,
             onGenerationEnd: null
         };
@@ -37,10 +38,6 @@ export class GeneticAlgorithm {
         this.population = [];
         /** The number of genomes/creatures to generate each generation. */
         this.populationSize = options.populationSize;
-
-        for (let i = 0; i < this.populationSize; i++) {
-            this.population.push(CreatureGenome.createRandom());
-        }
 
         /**
          * How many of the top performing genomes to copy over to the next generation.
@@ -77,6 +74,11 @@ export class GeneticAlgorithm {
          * @type{[Creature]}
          */
         this.creatures = [];
+        /**
+         * The maximum number of genotypes of each type (nodes and muscles) per creature.
+         * @type {number}
+         */
+        this.maxGenotypesPerCreature = options.maxGenotypesPerCreature;
         /** How long to evaluate each generation for in milliseconds.
          * @type{number}
          */
@@ -84,7 +86,7 @@ export class GeneticAlgorithm {
         /** How long the current generation has been evaluated for.
          * @type {number}
          */
-        this.currEvaluationStartTime = -options.evaluationTime;
+        this.currEvaluationStartTime = 0;
         /** A non-negative integer indicating how many generations have been completed.
          * @type {number}
          */
@@ -147,8 +149,15 @@ export class GeneticAlgorithm {
     reset() {
         this.generation = 0;
         this.timeStep = 0;
+
+        this.population = [];
+
+        for (let i = 0; i < this.populationSize; i++) {
+            this.population.push(CreatureGenome.createRandom(this.maxGenotypesPerCreature));
+        }
+
         // TODO: Make sure this doesn't cause any strange behaviour with `this.currEvaluationStartTime` and the engine timestamp.
-        this.nextGeneration(0);
+        this.nextGeneration(this.currEvaluationStartTime);
     }
 
     /**
@@ -293,6 +302,15 @@ export class GeneticAlgorithm {
         this.generation++;
         this.currEvaluationStartTime = timestamp;
         console.info(`${GeneticAlgorithm.logPrefix} Starting generation ${this.generation}`);
+
+        // This ugly line of code counts how many genotypes are disabled per genome in the population.
+        const numDisabledPerGenome = this.population.map(genome => genome.genotypes.filter(genotype => !genotype.isEnabled).length);
+        const numDisabled = numDisabledPerGenome.reduce((sum, x) => sum + x);
+        const numGenotypes = this.population.map(genome => genome.genotypes.length).reduce((sum, x) => sum + x);
+        const proportionDisabled = 100 * numDisabled / numGenotypes;
+
+        console.log(`${GeneticAlgorithm.logPrefix} Number of disabled genotypes: ${numDisabled}`,
+            `(${proportionDisabled.toFixed(2)}% of ${numGenotypes})`);
     }
 
     /**
