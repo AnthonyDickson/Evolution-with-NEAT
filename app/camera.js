@@ -50,6 +50,31 @@ export class CameraManager {
     }
 
     /**
+     * Clip a translation such that the resulting view does not go out of bounds.
+     * @param translation The translation to clip.
+     * @param render The Matter.Render object that has bounds.
+     * @param world The Matter.World object that has bounds.
+     * @returns {{x: number, y: number}} The translation that is clipped to the bounds of `render` and `world`.
+     */
+    static clipToBounds(translation, render, world) {
+        let clippedTranslation = Object.assign({}, translation);
+
+        if (render.bounds.min.x + clippedTranslation.x < world.bounds.min.x)
+            clippedTranslation.x = world.bounds.min.x - render.bounds.min.x;
+
+        if (render.bounds.max.x + clippedTranslation.x > world.bounds.max.x)
+            clippedTranslation.x = world.bounds.max.x - render.bounds.max.x;
+
+        if (render.bounds.min.y + clippedTranslation.y < world.bounds.min.y)
+            clippedTranslation.y = world.bounds.min.y - render.bounds.min.y;
+
+        if (render.bounds.max.y + clippedTranslation.y > world.bounds.max.y)
+            clippedTranslation.y = world.bounds.max.y - render.bounds.max.y;
+
+        return clippedTranslation;
+    }
+
+    /**
      * Perform the pre-tick updates for the camera manager.
      *
      * @param engine The engine that is being used.
@@ -60,7 +85,7 @@ export class CameraManager {
         let world = engine.world,
             mouse = mouseConstraint.mouse;
 
-        this.updateZoom(mouse, render);
+        this.updateZoom(mouse, render, world);
         this.updatePan(mouse, render, world);
     }
 
@@ -69,8 +94,9 @@ export class CameraManager {
      *
      * @param mouse The mouse object.
      * @param render The renderer object.
+     * @param world The world object.
      */
-    updateZoom(mouse, render) {
+    updateZoom(mouse, render, world) {
         // mouse wheel controls zoom
         let scaleFactor = mouse.wheelDelta * -this.zoomSpeed;
         if (scaleFactor !== 0) {
@@ -86,15 +112,16 @@ export class CameraManager {
             this.boundsScale.x += scaleFactor;
             this.boundsScale.y += scaleFactor;
 
+            // TODO: Fix zoom so that view stays within bounds.
             // scale the render bounds
             render.bounds.max.x = render.bounds.min.x + render.options.width * this.boundsScale.x;
             render.bounds.max.y = render.bounds.min.y + render.options.height * this.boundsScale.y;
 
             // translate so zoom is from centre of view
-            const translation = {
+            const translation = CameraManager.clipToBounds({
                 x: render.options.width * scaleFactor * -0.5,
                 y: render.options.height * scaleFactor * -0.5
-            };
+            }, render, world);
 
             Bounds.translate(render.bounds, translation);
 
@@ -102,6 +129,19 @@ export class CameraManager {
             Mouse.setScale(mouse, this.boundsScale);
             Mouse.setOffset(mouse, render.bounds.min);
         }
+    }
+
+    // noinspection JSMethodCanBeStatic
+    /**
+     * Perform the post-tick updates for the camera manager.
+     *
+     * @param engine The engine that is being used.
+     * @param render The renderer that is being used.
+     * @param mouseConstraint The mouse constraint that is being used.
+     */
+    onAfterUpdate(engine, render, mouseConstraint) {
+        mouseConstraint.mouse.prevPos.x = mouseConstraint.mouse.absolute.x;
+        mouseConstraint.mouse.prevPos.y = mouseConstraint.mouse.absolute.y;
     }
 
     /**
@@ -124,23 +164,14 @@ export class CameraManager {
 
             this.panVelocity = translation;
         } else {
+            // Keep the camera moving after the user stops panning.
             this.panVelocity = Vector.mult(this.panVelocity, this.panVelocityDecayRate);
             translation = this.panVelocity;
         }
 
         if (Vector.magnitude(translation) > 0.01) {
             // prevent the view moving outside the world bounds
-            if (render.bounds.min.x + translation.x < world.bounds.min.x)
-                translation.x = world.bounds.min.x - render.bounds.min.x;
-
-            if (render.bounds.max.x + translation.x > world.bounds.max.x)
-                translation.x = world.bounds.max.x - render.bounds.max.x;
-
-            if (render.bounds.min.y + translation.y < world.bounds.min.y)
-                translation.y = world.bounds.min.y - render.bounds.min.y;
-
-            if (render.bounds.max.y + translation.y > world.bounds.max.y)
-                translation.y = world.bounds.max.y - render.bounds.max.y;
+            translation = CameraManager.clipToBounds(translation, render, world);
 
             // move the view
             Bounds.translate(render.bounds, translation);
@@ -148,18 +179,5 @@ export class CameraManager {
             // we must update the mouse too
             Mouse.setOffset(mouse, render.bounds.min);
         }
-    }
-
-    // noinspection JSMethodCanBeStatic
-    /**
-     * Perform the post-tick updates for the camera manager.
-     *
-     * @param engine The engine that is being used.
-     * @param render The renderer that is being used.
-     * @param mouseConstraint The mouse constraint that is being used.
-     */
-    onAfterUpdate(engine, render, mouseConstraint) {
-        mouseConstraint.mouse.prevPos.x = mouseConstraint.mouse.absolute.x;
-        mouseConstraint.mouse.prevPos.y = mouseConstraint.mouse.absolute.y;
     }
 }

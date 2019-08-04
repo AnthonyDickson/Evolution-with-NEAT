@@ -32,14 +32,14 @@ import {createEngine} from "./utils";
 // TODO: Add leaderboards for best creatures for given standard stages.
 
 export function main() {
-    // TODO: Refactor constants common between main.js and worker.js to a common spot
-    const {engine, worldWidth} = createEngine({
-        min: {x: -10000},
-        max: {x: 10000}
-    });
-
     const viewportWidth = 800;
     const viewportHeight = 600;
+
+    // TODO: Refactor constants common between main.js and worker.js to a common spot
+    const {engine, worldWidth} = createEngine({
+        min: {x: -10000, y: 0},
+        max: {x: 10000, y: viewportHeight}
+    });
 
     // create a renderer
     const render = RenderPIXI.create({
@@ -54,6 +54,26 @@ export function main() {
             background: '#87ceeb' // skyblue
         }
     });
+
+    // add mouse control
+    const mouse = Mouse.create(render.canvas),
+        mouseConstraint = MouseConstraint.create(engine, {
+            mouse: mouse,
+            constraint: {
+                stiffness: 0.2,
+                render: {
+                    visible: false
+                }
+            },
+            collisionFilter: {
+                mask: 0
+            }
+
+        });
+
+    World.add(engine.world, mouseConstraint);
+
+    const cameraManager = new CameraManager(mouseConstraint);
 
     function resetView() {
         Render.lookAt(render, {
@@ -88,30 +108,12 @@ export function main() {
         }
     }
 
-    // add mouse control
-    const mouse = Mouse.create(render.canvas),
-        mouseConstraint = MouseConstraint.create(engine, {
-            mouse: mouse,
-            constraint: {
-                stiffness: 0.2,
-                render: {
-                    visible: false
-                }
-            },
-            collisionFilter: {
-                mask: 0
-            }
-
-        });
-
-    World.add(engine.world, mouseConstraint);
-
-    const cameraManager = new CameraManager(mouseConstraint);
-
-    // Make the 'creature' move to the right... really slowly...
-    Events.on(engine, 'beforeUpdate', function (event) {
+    Events.on(engine, 'beforeTick', () => {
         cameraManager.onBeforeUpdate(engine, render, mouseConstraint);
+    });
 
+    // Make the 'creatures' move to the right... really slowly...
+    Events.on(engine, 'beforeUpdate', function (event) {
         for (const creature of creatures) {
             creature.update(event.timestamp);
         }
