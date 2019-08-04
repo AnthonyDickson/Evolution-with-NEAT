@@ -190,7 +190,7 @@ export class GeneticAlgorithm {
 
         if (sorted.length % 2 === 0) {
             const i = Math.floor(sorted.length / 2);
-            medianFitness = 0.5 * (sorted[i] + sorted[i + 1]);
+            medianFitness = 0.5 * (sorted[i - 1] + sorted[i]);
         } else {
             medianFitness = sorted[Math.floor(sorted.length / 2)];
         }
