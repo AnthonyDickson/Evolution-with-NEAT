@@ -32,6 +32,7 @@ import {createEngine} from "./utils";
 // TODO: Add leaderboards for best creatures for given standard stages.
 
 export function main() {
+    // TODO: Refactor constants common between main.js and worker.js to a common spot
     const {engine, worldWidth} = createEngine({
         min: {x: -10000},
         max: {x: 10000}
@@ -80,7 +81,7 @@ export function main() {
         }
 
         population = newPopulation;
-        creatures = population.map(genome => new Creature(genome));
+        creatures = population.map(genome => new Creature(genome, 0, viewportHeight - 200));
 
         for (const creature of creatures) {
             World.add(engine.world, creature.phenome);
@@ -153,12 +154,12 @@ export function main() {
                     break;
                 case STARTED_GENERATION:
                     console.info(messagePrefix, 'Received STARTED_GENERATION message ');
-                    break;
-                case FINISHED_GENERATION:
-                    console.info(messagePrefix, 'Received FINISHED_GENERATION message');
                     if (message.data.generation % 10 === 0) {
                         setPopulation(message.data.population);
                     }
+                    break;
+                case FINISHED_GENERATION:
+                    console.info(messagePrefix, 'Received FINISHED_GENERATION message');
                     break;
                 default:
                     console.warn(`${messagePrefix} Unrecognised message: ${message.data.command}`);

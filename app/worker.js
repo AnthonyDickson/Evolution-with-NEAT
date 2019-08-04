@@ -11,10 +11,12 @@ export function main() {
         max: {x: 10000},
     });
 
+    const viewportHeight = 600;
+
     /** The `delta` or frames per second which dictates how the physics engine is updated. */
     const fps = 1000 / 60;
     /** How long to spend evaluating each generation in the genetic algorithm. */
-    const evaluationTime = 60000; // in milliseconds
+    const evaluationTime = 6000; // in milliseconds
     /** How often to log the time step. */
     const timestepLogFrequency = 1000;
     const getLogPrefix = () => `[${new Date().toLocaleString()}][Worker]`;
@@ -24,7 +26,7 @@ export function main() {
     const creatureCategory = 0x0002;
 
     // Create the ground.
-    const ground = Bodies.rectangle(0, 570, worldWidth, 60,
+    const ground = Bodies.rectangle(0, viewportHeight - 30, worldWidth, 60,
         {
             isStatic: true,
             collisionFilter: {
@@ -112,9 +114,12 @@ export function main() {
 
     const GA = new GeneticAlgorithm(engine.world, {
         evaluationTime: evaluationTime,
+        startingPosition: {y: viewportHeight - 200},
         onGenerationStart: onGenerationStart,
         onGenerationEnd: onGenerationEnd
     });
+
+    GA.reset();
 
     // Make the 'creatures' move to the right... really slowly...
     Events.on(engine, 'beforeUpdate', function (event) {

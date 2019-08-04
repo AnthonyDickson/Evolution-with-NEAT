@@ -11,7 +11,8 @@ export class GeneticAlgorithm {
      *
      * @param world The Matter.World that is being used.
      * @param options {{populationSize: number?, evaluationTime: number?, elitismRatio: number?,
-     *     tournamentSize: number?, onGenerationStart: function?, onGenerationEnd: function?}}
+     *     tournamentSize: number?, onGenerationStart: function?, startingPosition: {x: number?, y: number?}?,
+     *     onGenerationEnd: function?}}
      *     A dictionary of options.
      */
     constructor(world, options) {
@@ -20,6 +21,7 @@ export class GeneticAlgorithm {
             evaluationTime: 60000, // in milliseconds
             elitismRatio: 10,
             tournamentSize: 10,
+            startingPosition: {x: 0, y: 0},
             onGenerationStart: null,
             onGenerationEnd: null
         };
@@ -108,7 +110,15 @@ export class GeneticAlgorithm {
             topN: []
         };
 
-        this.nextGeneration(0);
+        /**
+         * The coordinates for where creatures should be spawned in.
+         *
+         * If this is too far away from the ground surface the
+         * creatures will bounce around and fall over when they hit the ground; if this too close to the ground surface
+         * then parts of the creature will spawn in the ground and get stuck.
+         * @type {{x?: number, y?: number}}
+         */
+        this.startingPosition = options.startingPosition;
 
         /**
          * A callback to be called when a new generation is started.
@@ -129,6 +139,16 @@ export class GeneticAlgorithm {
      */
     static get logPrefix() {
         return `[${new Date().toLocaleString()}][GeneticAlgorithm]`
+    }
+
+    /**
+     * Reset the genetic algorithm.
+     */
+    reset() {
+        this.generation = 0;
+        this.timeStep = 0;
+        // TODO: Make sure this doesn't cause any strange behaviour with `this.currEvaluationStartTime` and the engine timestamp.
+        this.nextGeneration(0);
     }
 
     /**
@@ -261,9 +281,11 @@ export class GeneticAlgorithm {
             World.remove(this.world, this.creatures.pop().phenome);
         }
 
+        const {x, y} = this.startingPosition;
+
         // Populate world with new generation
         for (const genome of this.population) {
-            const creature = new Creature(genome);
+            const creature = new Creature(genome, x, y);
             this.creatures.push(creature);
             World.add(this.world, creature.phenome);
         }
