@@ -27,7 +27,7 @@ export class NodeGenotype {
      * The probability that a gene is mutated during mutation.
      * @type {number}
      */
-    static pMutate = 0.03;
+    static pMutate = 0.05;
 
     /**
      * The default collision filter for nodes.
@@ -165,7 +165,7 @@ export class MuscleGenotype {
      * The probability that a gene is mutated during mutation.
      * @type {number}
      */
-    static pMutate = 0.03;
+    static pMutate = 0.05;
 
     /**
      * Create a new muscle genotype.
