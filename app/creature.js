@@ -6,13 +6,15 @@ import {clippedRandomGaussian, randomInt} from "./utils";
 export class NodeGenotype {
     /**
      * Configuration for used for generating random NodeGenotypes.
-     * @type {{size: {sigma: number, min: number, max: *, mu: number}, friction: {sigma: number, min: number, max: number, mu: number}}}
+     * @type {{size: {sigma: number, min: number, max: *, mu: number},
+     *     friction: {sigma: number, min: number, max: number, mu: number},
+     *     frictionStatic: {sigma: number, min: number, max: number, mu: number}}}
      */
     static randomConfig = {
         size: {
             mu: 20,
-            sigma: 5,
-            min: 1,
+            sigma: 3,
+            min: 10,
             max: Infinity
         },
         friction: {
@@ -20,7 +22,13 @@ export class NodeGenotype {
             sigma: 0.1,
             min: 0,
             max: 1
-        }
+        },
+        frictionStatic: {
+            mu: 0.5,
+            sigma: 0.1,
+            min: 0,
+            max: 1
+        },
     };
 
     /**
@@ -40,12 +48,13 @@ export class NodeGenotype {
 
     /**
      * Create a node gene.
-     * @param options {{size: number?, friction: number?}}
+     * @param options {{size: number?, friction: number?, staticFriction: number?}}
      */
     constructor(options = {}) {
         const defaults = {
             size: 20,
-            friction: 0.9
+            friction: 0.9,
+            frictionStatic: 0.5
         };
 
         options = Object.assign({}, defaults, options);
@@ -59,6 +68,11 @@ export class NodeGenotype {
          * The friction of the node.
          */
         this.friction = options.friction;
+
+        /**
+         * The static friction of the node (Coulomb friction).
+         */
+        this.frictionStatic = options.frictionStatic;
 
         /**
          * Whether or not the node genotype is enabled.
@@ -78,7 +92,8 @@ export class NodeGenotype {
     static createRandom() {
         return new NodeGenotype({
             size: clippedRandomGaussian(NodeGenotype.randomConfig.size),
-            friction: clippedRandomGaussian(NodeGenotype.randomConfig.friction)
+            friction: clippedRandomGaussian(NodeGenotype.randomConfig.friction),
+            frictionStatic: clippedRandomGaussian(NodeGenotype.randomConfig.frictionStatic)
         });
     }
 
@@ -113,14 +128,19 @@ export class NodeGenotype {
         const p = Math.random();
 
         if (p < NodeGenotype.pMutate) {
-            switch (randomInt(0, 2)) {
+            switch (randomInt(0, 3)) {
                 case 0:
                     this.size = clippedRandomGaussian(Object.assign({}, NodeGenotype.randomConfig.size,
-                        {mu: this.size}));
+                        {mu: this.size, sigma: 1}));
                     break;
                 case 1:
                     this.friction = clippedRandomGaussian(Object.assign({}, NodeGenotype.randomConfig.friction,
                         {mu: this.friction}));
+                    break;
+                case 2:
+                    this.frictionStatic = clippedRandomGaussian(Object.assign({}, NodeGenotype.randomConfig.frictionStatic,
+                        {mu: this.frictionStatic}));
+                    break;
             }
         }
     }
@@ -130,18 +150,22 @@ export class NodeGenotype {
 export class MuscleGenotype {
     /**
      * Configuration for used for generating random MuscleGenotypes.
-     * @type {{contractDelay: {sigma: number, min: number, max: *, mu: number}, extendedLength: {sigma: number, min: number, max: *, mu: number}, extendDelay: {sigma: number, min: number, max: *, mu: number}, contractedLength: {sigma: number, min: number, max: *, mu: number}, damping: {sigma: number, min: number, max: number, mu: number}, stiffness: {sigma: number, min: number, max: number, mu: number}}}
+     * @type {{contractDelay: {sigma: number, min: number, max: *, mu: number},
+     *     extendedLength: {sigma: number, min: number, max: *, mu: number},
+     *     extendDelay: {sigma: number, min: number, max: *, mu: number},
+     *     contractedLength: {sigma: number, min: number, max: *, mu: number},
+     *     stiffness: {sigma: number, min: number, max: number, mu: number}}}
      */
     static randomConfig = {
         contractedLength: {
             mu: 60,
-            sigma: 10,
+            sigma: 5,
             min: 1,
             max: Infinity
         },
         extendedLength: {
             mu: 80,
-            sigma: 10,
+            sigma: 5,
             min: 1,
             max: Infinity
         },
@@ -162,13 +186,7 @@ export class MuscleGenotype {
             sigma: 0.01,
             min: 0,
             max: 1
-        },
-        damping: {
-            mu: 0.1,
-            sigma: 0.01,
-            min: 0,
-            max: 1
-        },
+        }
     };
 
     /**
@@ -180,7 +198,7 @@ export class MuscleGenotype {
     /**
      * Create a new muscle genotype.
      *
-     * @param options {{bodyA: number?, bodyB: number?, stiffness: number?, damping: number?, contractedLength: number?,
+     * @param options {{bodyA: number?, bodyB: number?, stiffness: number?, contractedLength: number?,
      *     extendedLength: number?, contractDelay: number?, extendDelay: number?}}
      *
      * @see Constraint.create
@@ -191,7 +209,6 @@ export class MuscleGenotype {
             bodyA: 0,
             bodyB: 1,
             stiffness: 0.1,
-            damping: 0.1,
             contractedLength: 60,
             extendedLength: 80,
             contractDelay: 1000,
@@ -216,10 +233,6 @@ export class MuscleGenotype {
          * How fast the muscle moves between its contracted and extended states.
          */
         this.stiffness = options.stiffness;
-        /**
-         * How much the effect of stiffness should be dampened.
-         */
-        this.damping = options.damping;
         /**
          * How long the muscle is in its contracted state.
          */
@@ -262,7 +275,6 @@ export class MuscleGenotype {
             bodyA: bodyA,
             bodyB: bodyB,
             stiffness: clippedRandomGaussian(MuscleGenotype.randomConfig.stiffness),
-            damping: clippedRandomGaussian(MuscleGenotype.randomConfig.damping),
             contractedLength: clippedRandomGaussian(MuscleGenotype.randomConfig.contractedLength),
             extendedLength: clippedRandomGaussian(MuscleGenotype.randomConfig.extendedLength),
             contractDelay: clippedRandomGaussian(MuscleGenotype.randomConfig.contractDelay),
@@ -292,8 +304,7 @@ export class MuscleGenotype {
             bodyB: bodyB,
             contractedLength: muscleGenotype.contractedLength,
             extendedLength: muscleGenotype.extendedLength,
-            stiffness: muscleGenotype.stiffness,
-            damping: muscleGenotype.damping
+            stiffness: muscleGenotype.stiffness
         });
 
         constraint.contractDelay = muscleGenotype.contractDelay;
@@ -311,7 +322,7 @@ export class MuscleGenotype {
         const p = Math.random();
 
         if (p < MuscleGenotype.pMutate) {
-            switch (randomInt(0, 8)) {
+            switch (randomInt(0, 7)) {
                 case 0:
                     this.bodyA = randomInt(0, nNodes);
                     break;
@@ -321,32 +332,27 @@ export class MuscleGenotype {
                 case 2:
                     this.contractedLength = clippedRandomGaussian(Object.assign({},
                         MuscleGenotype.randomConfig.contractedLength,
-                        {mu: this.contractedLength}));
+                        {mu: this.contractedLength, sigma: 1}));
                     break;
                 case 3:
                     this.extendedLength = clippedRandomGaussian(Object.assign({},
                         MuscleGenotype.randomConfig.extendedLength,
-                        {mu: this.extendedLength}));
+                        {mu: this.extendedLength, sigma: 1}));
                     break;
                 case 4:
                     this.stiffness = clippedRandomGaussian(Object.assign({},
                         MuscleGenotype.randomConfig.stiffness,
-                        {mu: this.stiffness}));
+                        {mu: this.stiffness, sigma: 1}));
                     break;
                 case 5:
-                    this.damping = clippedRandomGaussian(Object.assign({},
-                        MuscleGenotype.randomConfig.damping,
-                        {mu: this.damping}));
-                    break;
-                case 6:
                     this.contractDelay = clippedRandomGaussian(Object.assign({},
                         MuscleGenotype.randomConfig.contractDelay,
-                        {mu: this.contractDelay}));
+                        {mu: this.contractDelay, sigma: 1}));
                     break;
-                case 7:
+                case 6:
                     this.extendDelay = clippedRandomGaussian(Object.assign({},
                         MuscleGenotype.randomConfig.extendDelay,
-                        {mu: this.extendDelay}));
+                        {mu: this.extendDelay, sigma: 1}));
                     break;
             }
 
