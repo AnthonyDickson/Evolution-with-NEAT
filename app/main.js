@@ -13,6 +13,8 @@ import {createEngine} from "./utils";
 // TODO: Show details for best, median and worst performing creatures (text).
 // TODO: Implement NEAT
 // TODO: Add "scientific" names for creatures based on genome
+// TODO: Add controls to navigate between generations (perhaps only store best, median and worst for 
+//  all previous generations except the most recent).
 // TODO: Add signposts indicating distance
 // TODO: Add controls to pan camera to best, median and worst creatures.
 // TODO: Add plots to show how fitness evolves over time.
