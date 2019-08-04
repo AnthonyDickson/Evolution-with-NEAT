@@ -10,15 +10,18 @@ export class GeneticAlgorithm {
      * Create a new genetic algorithm instance.
      *
      * @param world The Matter.World that is being used.
-     * @param options {{populationSize: number?, evaluationTime: number?, elitismRatio: number?, tournamentSize: number?}}
-     * A dictionary of options.
+     * @param options {{populationSize: number?, evaluationTime: number?, elitismRatio: number?,
+     *     tournamentSize: number?, onGenerationStart: function?, onGenerationEnd: function?}}
+     *     A dictionary of options.
      */
     constructor(world, options) {
         const defaults = {
             populationSize: 100,
             evaluationTime: 60000, // in milliseconds
             elitismRatio: 10,
-            tournamentSize: 10
+            tournamentSize: 10,
+            onGenerationStart: null,
+            onGenerationEnd: null
         };
 
         options = Object.assign({}, defaults, options);
@@ -80,10 +83,15 @@ export class GeneticAlgorithm {
          * @type {number}
          */
         this.currEvaluationStartTime = -options.evaluationTime;
-        /** An integer indicating how many generations have been completed.
+        /** A non-negative integer indicating how many generations have been completed.
          * @type {number}
          */
         this.generation = 0;
+        /**
+         * A non-negative integer indicating how many physics updates (i.e. steps) have been performed.
+         * @type {number}
+         */
+        this.timeStep = 0;
         /**
          * A dictionary of data from the previously completed generation.
          * @type {{minFitness: number, meanFitness: number, maxFitness: number, sumFitness: number, argmin: number,
@@ -101,6 +109,26 @@ export class GeneticAlgorithm {
         };
 
         this.nextGeneration(0);
+
+        /**
+         * A callback to be called when a new generation is started.
+         * @type {Function}
+         */
+        this.onGenerationStart = options.onGenerationStart;
+
+        /**
+         * A callback to be called when a generation has ended.
+         * @type {Function}
+         */
+        this.onGenerationEnd = options.onGenerationEnd;
+    }
+
+    /**
+     * Get the string prefix for log messages.
+     * @returns {string}
+     */
+    static get logPrefix() {
+        return `[${new Date().toLocaleString()}][GeneticAlgorithm]`
     }
 
     /**
@@ -135,11 +163,22 @@ export class GeneticAlgorithm {
             this.updateTopN(topN, i, fitnessScores);
         }
 
-        let meanScore = sum / this.creatures.length;
+        let meanFitness = sum / this.creatures.length;
+
+        const sorted = [...fitnessScores].sort();
+        let medianFitness;
+
+        if (sorted.length % 2 === 0) {
+            const i = Math.floor(sorted.length / 2);
+            medianFitness = 0.5 * (sorted[i] + sorted[i + 1]);
+        } else {
+            medianFitness = sorted[Math.floor(sorted.length / 2)];
+        }
 
         let generationResults = {
             minFitness: minFitness,
-            meanFitness: meanScore,
+            meanFitness: meanFitness,
+            medianFitness: medianFitness,
             maxFitness: maxFitness,
             sumFitness: sum,
             argmin: argmin,
@@ -148,10 +187,13 @@ export class GeneticAlgorithm {
             topN: topN
         };
 
-        console.log(`[${new Date()}] Generation ${this.generation} Summary:`);
-        console.log(`Min. Fitness: ${generationResults.fitness[argmin]} -  Mean Fitness: ${meanScore} - Max. Fitness ${generationResults.fitness[argmax]}`);
-        console.log('Blame: ', this.population[argmin], ' - Praise: ', this.population[argmax]);
-        console.log(generationResults);
+        console.log(`${GeneticAlgorithm.logPrefix} Generation ${this.generation} Summary:`);
+        console.log(`${GeneticAlgorithm.logPrefix} Min. Fitness: ${generationResults.fitness[argmin].toFixed(1)} -`,
+            `Median Fitness: ${medianFitness.toFixed(1)} -`,
+            `Max. Fitness ${generationResults.fitness[argmax].toFixed(1)}`);
+        // TODO: Replace the below with names.
+        console.log(`${GeneticAlgorithm.logPrefix} Blame: `, this.population[argmin],
+            ' - Praise: ', this.population[argmax]);
 
         return generationResults;
     }
@@ -216,21 +258,19 @@ export class GeneticAlgorithm {
 
         // Remove previous generation.
         while (this.creatures.length > 0) {
-            World.remove(this.world, this.creatures.pop().getPhenome());
+            World.remove(this.world, this.creatures.pop().phenome);
         }
 
         // Populate world with new generation
         for (const genome of this.population) {
             const creature = new Creature(genome);
             this.creatures.push(creature);
-            World.add(this.world, creature.getPhenome());
+            World.add(this.world, creature.phenome);
         }
-
-        console.log(`[${new Date()}] End of generation ${this.generation}`);
 
         this.generation++;
         this.currEvaluationStartTime = timestamp;
-        console.log(`[${new Date()}] Starting generation ${this.generation}`);
+        console.info(`${GeneticAlgorithm.logPrefix} Starting generation ${this.generation}`);
     }
 
     /**
@@ -260,12 +300,23 @@ export class GeneticAlgorithm {
     update(timestamp) {
         if (timestamp - this.currEvaluationStartTime >= this.evaluationTime) {
             this.generationResults = this.evaluate();
+            console.info(`${GeneticAlgorithm.logPrefix} End of generation ${this.generation}`);
+
+            if (this.onGenerationEnd !== null) {
+                this.onGenerationEnd();
+            }
 
             this.nextGeneration(timestamp);
+
+            if (this.onGenerationStart !== null) {
+                this.onGenerationStart();
+            }
         }
 
         for (const creature of this.creatures) {
             creature.update(timestamp);
         }
+
+        this.timeStep++;
     }
 }

@@ -1,3 +1,7 @@
+/** A collection of miscellaneous functions. */
+
+import {Engine} from "matter-js";
+
 /**
  * Generate a random gaussian number.
  * This uses an implementation of the Box–Muller transform: https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
@@ -48,4 +52,18 @@ export function clip(x, min = -Infinity, max = Infinity) {
  */
 export function clippedRandomGaussian(options) {
     return clip(randomGaussian(options.mu, options.sigma), options.min, options.max);
+}
+
+/**
+ * Create a new Matter.Engine instance.
+ * @param bounds {{min: {x: number?, y: number?}?, max: {x: number?, y: number?}?}} The bounds of the world.
+ * @returns {{worldWidth: *, engine: *}} The engine and world width (max extent along the x-axis).
+ */
+export function createEngine(bounds) {
+    const engine = Engine.create();
+
+    engine.world.bounds = Object.assign(engine.world.bounds, bounds);
+    const worldWidth = Math.abs(engine.world.bounds.max.x) + Math.abs(engine.world.bounds.min.x);
+
+    return {engine, worldWidth};
 }

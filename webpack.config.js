@@ -3,10 +3,13 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 require("babel-register");
 
 const config = {
-    entry: path.join(__dirname, 'app/index.js'),
+    entry: {
+        bundle: path.join(__dirname, 'app/index.js'),
+        worker: path.join(__dirname, 'app/worker.js')
+    },
     output: {
         path: path.join(__dirname, 'dist'),
-        filename: '[name].bundle.js'
+        filename: '[name].js'
     },
     module: {
         rules: [{

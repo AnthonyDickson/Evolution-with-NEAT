@@ -27,7 +27,7 @@ export class NodeGenotype {
      * The probability that a gene is mutated during mutation.
      * @type {number}
      */
-    static pMutate = 0.01;
+    static pMutate = 0.03;
 
     /**
      * The default collision filter for nodes.
@@ -81,15 +81,16 @@ export class NodeGenotype {
     }
 
     /**
-     * Get the physical manifestation of the genotype.
+     * Get the physical manifestation of a genotype.
      *
+     * @param nodeGenotype The genotype from which to create the phenotype.
      * @param x Where to initially place the node along the x-axis.
      * @param y Where to initially place the node along the y-axis.
-     * @returns {body} A Matter.Body with the properties of this genotype.
+     * @returns {body} A Matter.Body with the properties of the genotype.
      */
-    getPhenotype(x = 0, y = 0) {
-        return Bodies.circle(x, y, this.size, {
-            friction: this.friction,
+    static getPhenotype(nodeGenotype, x = 0, y = 0) {
+        return Bodies.circle(x, y, nodeGenotype.size, {
+            friction: nodeGenotype.friction,
             inertia: Infinity, // This stops the body from rotating like a wheel.
             collisionFilter: NodeGenotype.collisionFilter
         });
@@ -164,7 +165,7 @@ export class MuscleGenotype {
      * The probability that a gene is mutated during mutation.
      * @type {number}
      */
-    static pMutate = 0.01;
+    static pMutate = 0.03;
 
     /**
      * Create a new muscle genotype.
@@ -261,22 +262,23 @@ export class MuscleGenotype {
     /**
      * Get the physical manifestation of the genotype.
      *
+     * @param muscleGenotype The genotype from which to generate the phenotype.
      * @param bodyA The Matter.Body that is mapped to by the genotype's `bodyA` property.
      * @param bodyB The Matter.Body that is mapped to by the genotype's `bodyB` property.
      * @returns {MuscleConstraint} A MuscleConstraint with the properties of this genotype.
      */
-    getPhenotype(bodyA, bodyB) {
+    static getPhenotype(muscleGenotype, bodyA, bodyB) {
         let constraint = MuscleConstraint.create({
             bodyA: bodyA,
             bodyB: bodyB,
-            contractedLength: this.contractedLength,
-            extendedLength: this.extendedLength,
-            stiffness: this.stiffness,
-            damping: this.damping
+            contractedLength: muscleGenotype.contractedLength,
+            extendedLength: muscleGenotype.extendedLength,
+            stiffness: muscleGenotype.stiffness,
+            damping: muscleGenotype.damping
         });
 
-        constraint.contractDelay = this.contractDelay;
-        constraint.extendDelay = this.extendDelay;
+        constraint.contractDelay = muscleGenotype.contractDelay;
+        constraint.extendDelay = muscleGenotype.extendDelay;
 
         return constraint;
     }
@@ -335,7 +337,6 @@ export class CreatureGenome {
     constructor(nodeGenotypes, muscleGenotypes) {
         this.nodeGenotypes = nodeGenotypes;
         this.muscleGenotypes = muscleGenotypes;
-        this.genotypes = this.nodeGenotypes.concat(this.muscleGenotypes);
     }
 
     /**
@@ -390,6 +391,14 @@ export class CreatureGenome {
     }
 
     /**
+     * A list of all of the genotypes in the genome (both nodes and muscles).
+     * @returns {Buffer | * | any[] | string}
+     */
+    get genotypes() {
+        return this.nodeGenotypes.concat(this.muscleGenotypes);
+    }
+
+    /**
      * Perform crossover between two creature genomes.
      * @param otherCreatureGenome The other genome to crossover with.
      * @returns {CreatureGenome} The new creature genome that results from the crossover operation.
@@ -410,6 +419,7 @@ export class CreatureGenome {
             }
         }
 
+        // TODO: Inherit name from first parent and add number. E.g. Jarvan IV would be the child of Jarvan III.
         return new CreatureGenome(nodeGenotypes, muscleGenotypes);
     }
 
@@ -448,21 +458,34 @@ export class Creature {
             const pos = {x: Math.cos(angle) * 40, y: Math.sin(angle) * 40};
             i++;
 
-            this.bodies.push(nodeGenotype.getPhenotype(pos.x + x, pos.y + y));
+            this.bodies.push(NodeGenotype.getPhenotype(nodeGenotype, pos.x + x, pos.y + y));
         }
 
         for (const muscleGenotype of genome.muscleGenotypes) {
-            this.muscles.push(muscleGenotype.getPhenotype(this.bodies[muscleGenotype.bodyA], this.bodies[muscleGenotype.bodyB]));
+            this.muscles.push(MuscleGenotype.getPhenotype(muscleGenotype,
+                this.bodies[muscleGenotype.bodyA], this.bodies[muscleGenotype.bodyB]));
             this.muscleLastUpdates.push(0);
         }
+        // TODO: Add names for creatures.
     }
 
     /**
      * Get the phenome of the creature, i.e. the physical manifestations of the creature's genotypes (nodes and muscles).
      * @returns {*[]} The phenome of the creature.
      */
-    getPhenome() {
+    get phenome() {
         return this.bodies.concat(this.muscles);
+    }
+
+    /**
+     * Create a random creature.
+     * @param nNodes How many nodes the creature should have.
+     * @param x Where to initially place the creature along the x-axis.
+     * @param y Where to initially place the creature along the y-axis.
+     * @returns {Creature} The created creature.
+     */
+    static createRandom(nNodes = 3, x = 0, y = 0) {
+        return new Creature(CreatureGenome.createRandom(nNodes), x, y);
     }
 
     /**

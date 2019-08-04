@@ -2,34 +2,49 @@ import {Bodies, Engine, Events, Mouse, MouseConstraint, Render, World} from "mat
 
 import RenderPIXI from "./RenderPIXI";
 import {CameraManager} from "./camera";
-import {NodeGenotype} from "./creature";
-import {GeneticAlgorithm} from "./ga";
+import {Creature} from "./creature";
+import {FINISHED_GENERATION, GET_POPULATION, GET_PROGRESS, QUIT, START, STARTED_GENERATION} from "./messages";
+import {createEngine} from "./utils";
 
-// TODO: Add signposts indicating distance
-// TODO: Add text displaying camera position along x-axis
-// TODO: Show details for best, median and worst performing creatures.
+// The features wishlist roughly in order of descending priority
+// TODO: Name creatures.
 // TODO: Add controls to make camera follow the leader
+// TODO: Add text displaying camera position along x-axis
+// TODO: Show details for best, median and worst performing creatures (text).
 // TODO: Implement NEAT
-// TODO: Add ability to design own creature.
-
+// TODO: Add "scientific" names for creatures based on genome
+// TODO: Add signposts indicating distance
+// TODO: Add controls to pan camera to best, median and worst creatures.
+// TODO: Add plots to show how fitness evolves over time.
+// TODO: Allow user to inspect a creature by clicking on it. Show info about its genome.
+// TODO: Change layout of game + plots to be side by side (for large screens).
+// TODO: Add ability to save creatures
+// TODO: Add ability to save state of the genetic algorithm and restore it.
+// TODO: Add controls for restarting genetic algorithm.
+// TODO: Get genetic algorithm running on a server.
+// TODO: Add ability to design own creature and name it.
+// TODO: Allow users to sign in and persist the state of the genetic algorithm and to let run in the background.
+// TODO: Add different 'stages' or 'levels'. E.g. bumpy terrain, terrain with obstacles.
+// TODO: Make the 'environment'/'stage' be easily changeable/configurable.
+// TODO: Add editor for users to make custom stages.
+// TODO: Add leaderboards for best creatures for given standard stages.
 
 export function main() {
-    // create an engine
-    const engine = Engine.create();
+    const {engine, worldWidth} = createEngine({
+        min: {x: -10000},
+        max: {x: 10000}
+    });
 
-    engine.world.bounds.min.x = -10000;
-    engine.world.bounds.min.y = 0;
-    engine.world.bounds.max.x = 10000;
-    engine.world.bounds.max.y = 600;
-    const worldWidth = Math.abs(engine.world.bounds.max.x) + Math.abs(engine.world.bounds.min.x);
+    const viewportWidth = 800;
+    const viewportHeight = 600;
 
     // create a renderer
     const render = RenderPIXI.create({
         element: document.body,
         engine: engine,
         options: {
-            width: 800,
-            height: 600,
+            width: viewportWidth,
+            height: viewportHeight,
             hasBounds: true,
             showAngleIndicator: true,
             wireframes: false,
@@ -37,10 +52,38 @@ export function main() {
         }
     });
 
-    Render.lookAt(render, {
-        min: {x: -400, y: 0},
-        max: {x: 400, y: 600}
-    });
+    function resetView() {
+        Render.lookAt(render, {
+            min: {x: -0.5 * viewportWidth, y: 0},
+            max: {x: 0.5 * viewportWidth, y: viewportHeight}
+        });
+    }
+
+    const ground = Bodies.rectangle(0, viewportHeight - 30, worldWidth, 60,
+        {
+            isStatic: true,
+            render: {fillStyle: '#573b0c'} // an earthy brown
+        });
+
+    World.add(engine.world, ground);
+
+    let population = [];
+    let creatures = [];
+
+    function setPopulation(newPopulation) {
+        resetView();
+
+        for (const creature of creatures) {
+            World.remove(engine.world, creature.phenome);
+        }
+
+        population = newPopulation;
+        creatures = population.map(genome => new Creature(genome));
+
+        for (const creature of creatures) {
+            World.add(engine.world, creature.phenome);
+        }
+    }
 
     // add mouse control
     const mouse = Mouse.create(render.canvas),
@@ -60,42 +103,27 @@ export function main() {
 
     World.add(engine.world, mouseConstraint);
 
-
-    const defaultCategory = 0x0001,
-        creatureCategory = 0x0002;
-
-    const groundStyle = {fillStyle: '#573b0c'}; // earthy brown
-
-    // create two boxes and a ground
-    const ground = Bodies.rectangle(0, 570, worldWidth, 60,
-        {
-            isStatic: true,
-            render: groundStyle,
-            collisionFilter: {
-                category: defaultCategory
-            }
-        });
-
-    // add all of the bodies to the world
-    World.add(engine.world, ground);
-
     const cameraManager = new CameraManager(mouseConstraint);
-
-    NodeGenotype.collisionFilter = {
-        category: creatureCategory, // put creatures in their own category
-        mask: defaultCategory // only allow creatures to collide with the environment and not each other.
-    };
-
-    const GA = new GeneticAlgorithm(engine.world, {evaluationTime: 30000});
 
     // Make the 'creature' move to the right... really slowly...
     Events.on(engine, 'beforeUpdate', function (event) {
         cameraManager.onBeforeUpdate(engine, render, mouseConstraint);
-        GA.update(event.timestamp);
+
+        for (const creature of creatures) {
+            creature.update(event.timestamp);
+        }
     });
 
     Events.on(engine, 'afterUpdate', function () {
         cameraManager.onAfterUpdate(engine, render, mouseConstraint);
+
+        // TODO: Allow the user to toggle between this and controlling the camera manually. Use spacebar to toggle this?
+        // // Track the leader
+        // const x = Math.max(...creatures.map(creature => creature.getDisplacement()));
+        // Render.lookAt(render, {
+        //     min: {x: -0.5 * viewportWidth + x, y: 0},
+        //     max: {x: 0.5 * viewportWidth + x, y: viewportHeight}
+        // });
     });
 
     // run the engine
@@ -103,5 +131,41 @@ export function main() {
 
     // run the renderer
     RenderPIXI.run(render);
+
+    let worker = new Worker('worker.js');
+
+    worker.onmessage = (message) => {
+        if (message.data.hasOwnProperty('command')) {
+            const messagePrefix = `[${new Date().toLocaleString()}][Main]`;
+
+            switch (message.data.command) {
+                case START:
+                    console.info(messagePrefix, 'Received START message');
+                    break;
+                case GET_POPULATION:
+                    console.info(messagePrefix, 'Received GET_POPULATION message');
+                    setPopulation(message.data.population);
+                    break;
+                case GET_PROGRESS:
+                    console.info(messagePrefix, 'Received GET_PROGRESS message');
+                    break;
+                case STARTED_GENERATION:
+                    console.info(messagePrefix, 'Received STARTED_GENERATION message ');
+                    break;
+                case FINISHED_GENERATION:
+                    console.info(messagePrefix, 'Received FINISHED_GENERATION message');
+                    if (message.data.generation % 10 === 0) {
+                        setPopulation(message.data.population);
+                    }
+                    break;
+                default:
+                    console.warn(`${messagePrefix} Unrecognised message: ${message.data.command}`);
+            }
+        }
+    };
+
+    worker.postMessage({command: START});
+    worker.postMessage({command: GET_POPULATION});
+    window.onclose = () => worker.postMessage({command: QUIT});
 }
 
