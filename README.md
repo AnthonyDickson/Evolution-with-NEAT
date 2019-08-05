@@ -13,17 +13,20 @@ should allow the creatures to move. For the physics I intend to use matter.js, a
 I will use the default renderer that comes with matter.js.
 
 ## Getting Started
-1.  Install Node Version Manager:
+1.  Install NVM (Node Version Manager):
     ```shell script
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
     ```
+    You may need to restart your terminal to be able to use NVM.
+    
 2.  Install Node and NPM (Node Package Manager):
     ```shell script
     nvm install 10.16.1
     ```
     
-3.  Verify your NPM installation:
+3.  Verify your Node and NPM installation:
     ```shell script
+    node -v
     npm -v
     ```
 
